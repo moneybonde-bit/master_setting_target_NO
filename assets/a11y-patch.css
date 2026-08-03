@@ -1,0 +1,337 @@
+/* =============================================================================
+   assets/a11y-patch.css  ·  v1.3
+   AIM+ AP Target Setting — Decision Workbook
+   -----------------------------------------------------------------------------
+   File terpisah, dimuat SETELAH assets/app.css di index.html. Tidak ada satu
+   baris pun di app.css yang perlu diubah — override bekerja lewat cascade.
+   Untuk membatalkan seluruh patch: hapus satu <link> di index.html.
+   Zero dependency, tanpa @import, tanpa font eksternal.
+   ============================================================================= */
+
+
+/* -----------------------------------------------------------------------------
+   11.1 · TOKEN KONTRAS  (audit poin 1)
+   -----------------------------------------------------------------------------
+   Dua abu-abu lama gagal WCAG AA untuk teks:
+
+     #8A8894  = 3.48:1 di atas putih   → GAGAL (butuh 4.5:1)
+     #7C7A86  = 4.21:1 di atas putih   → GAGAL (tipis, dan gagal total
+                                          di atas kartu bernuansa #F4F4F6)
+
+   Pengganti dihitung dengan MEMPERTAHANKAN hue 249–250° dan saturasi rendah
+   yang sama, hanya lightness yang diturunkan. Nuansa ungu-dingin brand tetap:
+
+     --grey       #8A8894 → #6E6C7A   5.14:1 putih · 4.68:1 di #F4F4F6  ✔ AA
+     --grey-deep  #7C7A86 → #5E5C6A   6.53:1 putih · 5.95:1 di #F4F4F6  ✔ AA+
+
+   PENTING — jangan find-and-replace buta.
+   Warna lama TETAP SAH untuk elemen NON-TEKS (garis tabel, gridline chart,
+   border kartu). WCAG tidak menuntut 4.5:1 di sana, dan kalau ikut digelapkan
+   seluruh tabel akan terasa berat. Dua token di bawah menyimpannya.
+----------------------------------------------------------------------------- */
+:root{
+  /* teks — versi lolos AA */
+  --grey:            #6E6C7A;   /* teks sekunder, label, caption, footer   */
+  --grey-deep:       #5E5C6A;   /* teks sekunder di atas latar bernuansa   */
+  --grey-strong:     #4A4855;   /* 8.94:1 — angka kecil di data table      */
+
+  /* non-teks — nilai lama dipertahankan */
+  --rule:            #8A8894;   /* border, divider, gridline               */
+  --rule-soft:       #C9C8D2;   /* hairline tabel                          */
+  --ink-disabled:    #7C7A86;   /* ikon/kontrol nonaktif (bukan teks baca) */
+
+  /* skala tipografi minimum (audit poin 2) */
+  --fs-micro:        11px;      /* dulu 9–10px  */
+  --fs-small:        12px;      /* dulu 10px    */
+  --lh-tight:        1.35;
+}
+
+/* Fallback bila app.css memakai literal hex, bukan var().
+   Kelas-kelas ini yang teridentifikasi memuat teks kecil/redup di index.html. */
+.dim, .hlp, .appendonly, .ext, .lockstate, .colspec,
+.caption, .footnote, .srcnote, .sheet-foot, .legend, .subtle{
+  color: var(--grey);
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.2 · LANTAI UKURAN FONT  (audit poin 2)
+   -----------------------------------------------------------------------------
+   Tidak ada teks di bawah 11px. Angka di dalam tabel data naik ke 12px karena
+   itu konten yang dibaca berulang, bukan sekadar label.
+----------------------------------------------------------------------------- */
+.dim, .hlp, .appendonly, .ext, .caption, .footnote,
+.srcnote, .legend, .subtle, .chip, .badge{
+  font-size: var(--fs-micro);
+  line-height: var(--lh-tight);
+}
+
+.lockstate, .colspec, .sheet-foot{
+  font-size: var(--fs-micro);
+  line-height: var(--lh-tight);
+}
+
+table td, table th,
+.grid td, .grid th,
+.dtable td, .dtable th{
+  font-size: var(--fs-small);
+  line-height: var(--lh-tight);
+}
+
+/* Jaring pengaman: apa pun yang masih < 11px dinaikkan.
+   Hapus blok ini setelah semua rule sumber di §1–§8 dirapikan. */
+[style*="font-size:9"],
+[style*="font-size: 9"],
+[style*="font-size:10"],
+[style*="font-size: 10"]{
+  font-size: var(--fs-micro) !important;
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.3 · FOCUS RING YANG TERLIHAT  (audit poin 3)
+   -----------------------------------------------------------------------------
+   :focus-visible saja — mouse user tidak melihat ring, keyboard user melihat.
+----------------------------------------------------------------------------- */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible{
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Skip link — belum ada di index.html, markup-nya ada di catatan pemasangan */
+.skiplink{
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 999;
+  background: var(--midnight);
+  color: #fff;
+  padding: 8px 14px;
+  font-size: var(--fs-small);
+  text-decoration: none;
+}
+.skiplink:focus{ left: 8px; top: 8px; }
+
+/* Label yang hanya dibaca screen reader — textarea impor Excel */
+.srlabel{
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.4 · TOOLTIP CSS  (audit poin 4) — pengganti title=
+   -----------------------------------------------------------------------------
+   Pemakaian:   <button aria-label="Rebuild" data-tip="Menghitung ulang…">↻</button>
+   Arah:        data-tip-pos="below" | "right" | default = above
+   Screen reader TIDAK membaca ::after, jadi aria-label WAJIB tetap ada.
+   data-tip hanya untuk mata; aria-label untuk telinga.
+----------------------------------------------------------------------------- */
+[data-tip]{ position: relative; }
+
+[data-tip]::after,
+[data-tip]::before{
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+[data-tip]::after{                       /* balon */
+  content: attr(data-tip);
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, 3px);
+  z-index: 90;
+
+  min-width: 120px;
+  max-width: 260px;
+  width: max-content;
+  padding: 6px 9px;
+
+  background: var(--midnight);
+  color: #fff;
+  font-size: var(--fs-micro);
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  letter-spacing: .1px;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(17,18,34,.28);
+}
+
+[data-tip]::before{                      /* ekor */
+  content: "";
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translate(-50%, 3px);
+  z-index: 91;
+  border: 5px solid transparent;
+  border-top-color: var(--midnight);
+}
+
+[data-tip]:hover::after,   [data-tip]:hover::before,
+[data-tip]:focus-visible::after, [data-tip]:focus-visible::before{
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: .35s;                /* tidak muncul saat kursor lewat */
+}
+
+/* Arah alternatif — dipakai untuk tombol di baris paling atas chrome bar,
+   yang tooltip-nya akan terpotong kalau muncul di atas. */
+[data-tip][data-tip-pos="below"]::after{
+  bottom: auto; top: calc(100% + 8px); transform: translate(-50%, -3px);
+}
+[data-tip][data-tip-pos="below"]::before{
+  bottom: auto; top: calc(100% + 3px);
+  transform: translate(-50%, -3px);
+  border-top-color: transparent;
+  border-bottom-color: var(--midnight);
+}
+[data-tip][data-tip-pos="below"]:hover::after,
+[data-tip][data-tip-pos="below"]:hover::before,
+[data-tip][data-tip-pos="below"]:focus-visible::after,
+[data-tip][data-tip-pos="below"]:focus-visible::before{
+  transform: translate(-50%, 0);
+}
+
+[data-tip][data-tip-pos="right"]::after{
+  left: calc(100% + 8px); bottom: auto; top: 50%;
+  transform: translate(-3px, -50%);
+}
+[data-tip][data-tip-pos="right"]::before{
+  left: calc(100% + 3px); bottom: auto; top: 50%;
+  transform: translate(-3px, -50%);
+  border-top-color: transparent;
+  border-right-color: var(--midnight);
+}
+[data-tip][data-tip-pos="right"]:hover::after,
+[data-tip][data-tip-pos="right"]:hover::before,
+[data-tip][data-tip-pos="right"]:focus-visible::after,
+[data-tip][data-tip-pos="right"]:focus-visible::before{
+  transform: translate(0, -50%);
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.5 · MODAL — focus trap pendukung  (audit poin 3)
+   -----------------------------------------------------------------------------
+   Logika trap ada di JS. CSS di sini hanya mengunci scroll latar dan
+   memastikan modal bisa di-scroll sendiri saat isinya panjang.
+----------------------------------------------------------------------------- */
+body.modal-open{ overflow: hidden; }
+
+.scrim .modal{
+  max-height: 88vh;
+  overflow-y: auto;
+  outline: none;                          /* fokus programatik, bukan visual */
+}
+
+.scrim [data-close]{
+  line-height: 1;
+  cursor: pointer;
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.6 · SKELETON / SHIMMER SAAT BOOT  (audit poin 5)
+   -----------------------------------------------------------------------------
+   Markup ditaruh statis di dalam #sheets pada index.html, jadi terlihat
+   sebelum satu baris JS pun jalan. boot() menimpanya lewat innerHTML.
+----------------------------------------------------------------------------- */
+.skel-wrap{ padding: 20px 22px; }
+
+.skel{
+  background: linear-gradient(
+      90deg,
+      #ECECF1 0%,
+      #F6F6F9 42%,
+      #ECECF1 84%);
+  background-size: 240% 100%;
+  animation: skelSlide 1.25s linear infinite;
+  border-radius: 3px;
+}
+
+@keyframes skelSlide{
+  from{ background-position: 120% 0; }
+  to  { background-position: -120% 0; }
+}
+
+.skel-title { height: 22px; width: 320px; margin-bottom: 8px; }
+.skel-sub   { height: 12px; width: 190px; margin-bottom: 22px; }
+
+.skel-cards { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+.skel-card  { height: 84px; flex: 1 1 170px; }
+
+.skel-row   { height: 15px; margin-bottom: 9px; }
+.skel-row:nth-child(odd) { width: 100%; }
+.skel-row:nth-child(3n)  { width: 82%; }
+.skel-row:nth-child(4n)  { width: 91%; }
+
+.skel-cap{
+  margin-top: 20px;
+  font-size: var(--fs-small);
+  color: var(--grey);
+}
+
+/* Aksesibilitas: sembunyikan skeleton dari screen reader, ganti dengan
+   satu live-region pendek. Diatur di JS. */
+.skel-wrap[aria-hidden="true"]{ }
+
+@media (prefers-reduced-motion: reduce){
+  .skel{ animation: none; background: #ECECF1; }
+  [data-tip]::after, [data-tip]::before{ transition: none; }
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.6b · PANEL KEGAGALAN BOOT  (v1.2)
+   -----------------------------------------------------------------------------
+   Muncul kalau setelah 4 detik #sheets masih kosong. Lebih baik halaman
+   mengaku gagal daripada diam putih.
+----------------------------------------------------------------------------- */
+.bootfail{
+  margin: 20px 22px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--red, #C0392B);
+  background: #FDF3F2;
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: #4A2320;
+  max-width: 720px;
+}
+.bootfail b{ display: block; margin-bottom: 6px; font-size: 13px; }
+.bootfail p{ margin: 6px 0 0; }
+.bootfail code{
+  display: inline-block;
+  margin: 2px 3px 2px 0;
+  padding: 1px 5px;
+  background: #fff;
+  border: 1px solid #E3C9C6;
+  border-radius: 3px;
+  font-size: var(--fs-micro);
+}
+
+
+/* -----------------------------------------------------------------------------
+   11.7 · CETAK — tambahan untuk §9
+----------------------------------------------------------------------------- */
+@media print{
+  [data-tip]::after,
+  [data-tip]::before,
+  .skel-wrap,
+  .bootfail,
+  .skiplink{ display: none !important; }
+
+  /* Warna teks dicetak selalu penuh, jangan andalkan abu-abu layar */
+  .dim, .hlp, .caption, .footnote, .srcnote, .legend{ color: #3A3846 !important; }
+}
