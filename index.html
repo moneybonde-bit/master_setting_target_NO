@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>National Target Dashboard · Wahana Visi Indonesia</title>
+<meta name="description" content="National Target Dashboard — Indonesia National Summary. AIM+ Target Setting FY27–FY30, Wahana Visi Indonesia.">
+<meta name="color-scheme" content="light">
+
+<link rel="stylesheet" href="assets/app.css?v=3.4"
+      onerror="var l=document.createElement('link');l.rel='stylesheet';l.href='app.css?v=3.4';document.head.appendChild(l);">
+
+<!-- Patch aksesibilitas. Harus SETELAH app.css supaya menang di cascade.
+     Pola fallback path-nya sama seperti di atas. Hapus baris ini untuk
+     membatalkan seluruh perubahan warna, font, dan tooltip. -->
+<link rel="stylesheet" href="assets/a11y-patch.css?v=3.4"
+      onerror="var l=document.createElement('link');l.rel='stylesheet';l.href='a11y-patch.css?v=3.4';document.head.appendChild(l);">
+
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FF5515'/%3E%3Crect x='7' y='19' width='4' height='7' rx='1' fill='white'/%3E%3Crect x='14' y='13' width='4' height='13' rx='1' fill='white'/%3E%3Crect x='21' y='7' width='4' height='19' rx='1' fill='white'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<a class="skiplink" href="#app">Lompat ke isi dashboard</a>
+
+<!-- Skeleton menggantikan teks "Memuat dashboard…". Tampil di paint pertama,
+     hilang sendiri begitu boot() menulis app.innerHTML. -->
+<div id="app" tabindex="-1">
+  <div class="skel-wrap" aria-hidden="true">
+    <div class="skel skel-title"></div>
+    <div class="skel skel-sub"></div>
+    <div class="skel-cards">
+      <div class="skel skel-card"></div>
+      <div class="skel skel-card"></div>
+      <div class="skel skel-card"></div>
+      <div class="skel skel-card"></div>
+    </div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <div class="skel skel-row"></div>
+    <p class="skel-cap">Memuat dashboard…</p>
+  </div>
+</div>
+
+<div class="scrim" id="scrimImport">
+  <div class="modal">
+    <h3 id="scrimImport_title">Impor data dari Excel
+      <button data-close aria-label="Tutup dialog impor">&#10005;</button>
+    </h3>
+    <div class="body">
+      <p>Di sheet <b>Indicators</b>, pilih seluruh blok data (boleh ikut baris header), copy, lalu tempel di bawah.</p>
+      <p class="dim" id="impHint">Angka boleh berkoma maupun bertitik. Sel kosong tetap kosong.
+         Nilai <b>0</b> pada % Baseline atau % LOP tetap berarti belum ada data.</p>
+
+      <label class="srlabel" for="impBox">Blok data dari sheet Indicators</label>
+      <textarea id="impBox" placeholder="Tempel di sini…" spellcheck="false"
+                aria-describedby="impHint"></textarea>
+
+      <div id="impReport" role="status" aria-live="polite"></div>
+    </div>
+    <div class="foot">
+      <button class="tbtn" id="impCheck">Periksa</button>
+      <button class="tbtn pri" id="impGo" disabled>Muat data</button>
+      <button class="tbtn" data-close>Batal</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  /* Setiap baris: [path utama, path cadangan kalau folder tidak ada].
+     Urutan dipertahankan apa adanya dari versi Anda. */
+  /* Penanda versi memaksa browser dan CDN GitHub Pages mengambil berkas baru.
+     Tanpa ini, assets/app.js lama tetap disajikan dari cache sampai kedaluwarsa,
+     dan perubahan tidak terlihat walau sudah ter-push. Naikkan angka ini setiap
+     kali app.js atau app.css berubah. */
+  var V="3.4";
+  var Q=[["data/config.js","config.js"],["data/indicators.js","indicators.js"],
+         ["data/asumsi.js","asumsi.js"],["data/pemetaan.js","pemetaan.js"],
+         ["assets/app.js","app.js"]];
+
+  var found=[],failed=[];
+
+  function one(c,done){var i=0;(function t(){
+    if(i>=c.length){done(false);return;}
+    var s=document.createElement("script");s.src=c[i++]+"?v="+V;s.async=false;
+    s.onload=function(){found.push(s.src);done(true);};
+    s.onerror=function(){s.parentNode&&s.parentNode.removeChild(s);t();};
+    document.head.appendChild(s);})();}
+
+  function next(n){ if(n>=Q.length){fin();return;}
+    one(Q[n],function(ok){ if(!ok) failed.push(Q[n][0].replace(/^.*\//,"").replace(/\?.*$/,"")); next(n+1); }); }
+
+  /* Patch aksesibilitas dimuat SETELAH boot() berhasil, dan kegagalannya
+     tidak fatal - dashboard tetap jalan tanpa file ini. */
+  function tail(){
+    one(["assets/a11y-patch.js","a11y-patch.js"],function(){});
+  }
+
+  function fin(){
+    if(failed.length) return rep();
+    if(typeof boot!=="function") return rep("app.js termuat tapi tidak mendefinisikan boot()");
+
+    function run(){ try{ boot(); tail(); }catch(e){ rep(e.message); } }
+
+    /* PERBAIKAN. Versi sebelumnya menulis:
+           if(document.readyState==="loading") return;
+       - kalau keempat file data selesai dimuat sebelum HTML habis diparse
+       (sering terjadi saat file sudah ada di cache), boot() tidak pernah
+       dipanggil dan halaman berhenti di "Memuat dashboard..." tanpa error.
+       Sekarang penantiannya dijadwalkan, bukan dibatalkan. */
+    if(document.readyState==="loading")
+      document.addEventListener("DOMContentLoaded",run,{once:true});
+    else run();
+  }
+
+  function rep(x){
+    document.getElementById("app").innerHTML=
+      '<div style="padding:40px 28px;max-width:660px;font:14px/1.7 system-ui;color:#565D6D">'+
+      '<h2 style="font-size:18px;color:#14161A;margin:0 0 12px">Ada berkas yang tidak ditemukan</h2>'+
+      '<p>Dicari di <code>data/</code> dan <code>assets/</code> lebih dulu, lalu di root. '+
+      'Yang tidak ada di keduanya:</p><ul>'+failed.map(function(f){
+        return '<li style="color:#C62828;font-weight:500">'+f+'</li>';}).join('')+'</ul>'+
+      (found.length?'<p>Berhasil dimuat:</p><ul>'+found.map(function(f){
+        return '<li><code>'+f+'</code></li>';}).join('')+'</ul>':'')+
+      (x?'<p style="color:#C62828">'+x+'</p>':'')+'</div>';
+  }
+
+  next(0);
+})();
+</script>
+</body>
+</html>
